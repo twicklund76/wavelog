@@ -58,7 +58,23 @@
 			    	<small id="marginLeftHelp" class="form-text text-muted"><?= __("Left margin of labels."); ?></small>
 			    </div>
   			</div>
-
+			<div class="mb-3 row">
+			    <label class="col-sm-2 col-form-label" for="use_visual_designer"><?= __("Use Visual Designer"); ?></label>
+			    <div class="col-sm-10">
+			        <div class="form-check">
+			            <input
+			                class="form-check-input"
+			                type="checkbox"
+			                id="use_visual_designer"
+			                name="use_visual_designer"
+			                value="1"
+			            >
+			            <label class="form-check-label" for="use_visual_designer">
+			                <?= __("Use a visual layout instead of the standard label renderer"); ?>
+			            </label>
+			        </div>
+			    </div>
+			</div>
   			<div class="mb-3 row">
     			<label class="col-sm-2 col-form-label" for="NX"><?= __("Labels horizontally"); ?></label>
 			    <div class="col-sm-4">
