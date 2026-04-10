@@ -235,4 +235,12 @@ class Labels_model extends CI_Model {
 
         return $query->row();
     }
+    public function enableVisualDesigner($id, $user_id)
+    {
+        $this->db->where('id', $id);
+        $this->db->where('user_id', $user_id);
+        return $this->db->update('label_types', array(
+            'use_visual_designer' => 1
+        ));
+    }
 }

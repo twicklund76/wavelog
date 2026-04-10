@@ -85,10 +85,14 @@
 			            type="button"
 			            id="open_visual_designer"
 			            class="btn btn-secondary"
+			            data-label-id="<?php echo $label->id; ?>"
 			            <?php if (!isset($label->use_visual_designer) || (int)$label->use_visual_designer !== 1) echo 'disabled'; ?>
 			        >
 			            <?= __("Open Visual Designer"); ?>
 			        </button>
+			        <small class="form-text text-muted d-block mt-2">
+				    <?= __("Checking the box enables the designer button. Opening the designer activates visual designer mode for this label."); ?>
+			        </small>
 			    </div>
 			</div>
   			<div class="mb-3 row">
@@ -154,18 +158,21 @@
 </div>
 <br>
 <script>
-	document.addEventListener("DOMContentLoaded", function() {
-	    const checkbox = document.getElementById("use_visual_designer");
-	    const button = document.getElementById("open_visual_designer");
+document.addEventListener("DOMContentLoaded", function() {
+    const checkbox = document.getElementById("use_visual_designer");
+    const button = document.getElementById("open_visual_designer");
 
-	    if (checkbox && button) {
-        	checkbox.addEventListener("change", function() {
-	            button.disabled = !this.checked;
-        	});
-	    }
-	});
+    if (checkbox && button) {
+        checkbox.addEventListener("change", function() {
+            button.disabled = !this.checked;
+        });
 
-	document.getElementById("open_visual_designer")?.addEventListener("click", function() {
-	    alert("Visual Designer coming next step");
-	});
+        button.addEventListener("click", function() {
+            const labelId = this.dataset.labelId;
+            if (labelId) {
+                window.location.href = "<?php echo site_url('labels/visual_designer/'); ?>" + labelId;
+            }
+        });
+    }
+});
 </script>

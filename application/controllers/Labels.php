@@ -509,4 +509,31 @@ class Labels extends CI_Controller {
 		$this->session->set_flashdata('warning', __('Paper was deleted.'));
 		redirect('labels');
 	}
+	public function visual_designer($id = null)
+	{
+	    if ($id === null) {
+        	show_404();
+	    }
+
+	    $this->load->model('Labels_model');
+
+    	    $cleanid = $this->security->xss_clean($id);
+            $user_id = $this->session->userdata('user_id');
+
+	    $this->Labels_model->enableVisualDesigner($cleanid, $user_id);
+
+
+	    $label = $this->Labels_model->getLabel($cleanid, $user_id);
+
+	    if (!$label) {
+        	show_404();
+	    }
+
+	    $data['label'] = $label;
+	    $data['page_title'] = __("Visual Designer");
+
+	    $this->load->view('interface_assets/header', $data);
+	    $this->load->view('labels/visual_designer', $data);
+	    $this->load->view('interface_assets/footer');
+	}
 }
