@@ -78,6 +78,19 @@
 			        </div>
 			    </div>
 			</div>
+			<div class="mb-3 row">
+			    <div class="col-sm-2"></div>
+			    <div class="col-sm-10">
+			        <button
+			            type="button"
+			            id="open_visual_designer"
+			            class="btn btn-secondary"
+			            <?php if (!isset($label->use_visual_designer) || (int)$label->use_visual_designer !== 1) echo 'disabled'; ?>
+			        >
+			            <?= __("Open Visual Designer"); ?>
+			        </button>
+			    </div>
+			</div>
   			<div class="mb-3 row">
     			<label class="col-sm-2 col-form-label" for="NX"><?= __("Labels horizontally"); ?></label>
 			    <div class="col-sm-4">
@@ -140,3 +153,19 @@
 
 </div>
 <br>
+<script>
+	document.addEventListener("DOMContentLoaded", function() {
+	    const checkbox = document.getElementById("use_visual_designer");
+	    const button = document.getElementById("open_visual_designer");
+
+	    if (checkbox && button) {
+        	checkbox.addEventListener("change", function() {
+	            button.disabled = !this.checked;
+        	});
+	    }
+	});
+
+	document.getElementById("open_visual_designer")?.addEventListener("click", function() {
+	    alert("Visual Designer coming next step");
+	});
+</script>
