@@ -10,7 +10,7 @@
 
 <?php echo validation_errors(); ?>
 
-<form method="post" action="<?php echo site_url('labels/updateLabel/' . $label->id); ?>" name="create_label_type">
+<form method="post" action="<?php echo site_url('labels/updateLabel/' . $label->id); ?>" id="labelEditForm" name="create_label_type">
 
 	<div class="card">
 		<h2 class="card-header"><?php echo $page_title; ?></h2>
@@ -154,24 +154,156 @@
 	</div>
 
 </form>
-
+<form method="post" action="<?php echo site_url('labels/visual_designer/'.$label->id); ?>" id="visualDesignerLaunchForm" style="display:none;">
+    <input type="hidden" name="label_name" id="vd_label_name">
+    <input type="hidden" name="paper_type_id" id="vd_paper_type_id">
+    <input type="hidden" name="measurementType" id="vd_measurementType">
+    <input type="hidden" name="marginTop" id="vd_marginTop">
+    <input type="hidden" name="marginLeft" id="vd_marginLeft">
+    <input type="hidden" name="NX" id="vd_NX">
+    <input type="hidden" name="NY" id="vd_NY">
+    <input type="hidden" name="SpaceX" id="vd_SpaceX">
+    <input type="hidden" name="SpaceY" id="vd_SpaceY">
+    <input type="hidden" name="width" id="vd_width">
+    <input type="hidden" name="height" id="vd_height">
+    <input type="hidden" name="font_size" id="vd_font_size">
+    <input type="hidden" name="font" id="vd_font">
+    <input type="hidden" name="label_qsos" id="vd_label_qsos">
+    <input type="hidden" name="use_visual_designer" id="vd_use_visual_designer">
+</form>
 </div>
 <br>
 <script>
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("labelEditForm");
+    if (!form) return;
+
+    const labelId = "<?php echo $label->id; ?>";
+    const storageKey = "wavelog_label_edit_draft_" + labelId;
+
+    const trackedIds = [
+        "label_name",
+        "paper_type_id",
+        "measurementType",
+        "marginTop",
+        "marginLeft",
+        "NX",
+        "NY",
+        "SpaceX",
+        "SpaceY",
+        "width",
+        "height",
+        "font_size",
+        "font",
+        "label_qsos",
+        "use_visual_designer"
+    ];
+
+    function saveDraft() {
+        const draft = {};
+
+        trackedIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            if (el.type === "checkbox") {
+                draft[id] = el.checked ? "1" : "0";
+            } else {
+                draft[id] = el.value;
+            }
+        });
+
+        sessionStorage.setItem(storageKey, JSON.stringify(draft));
+    }
+
+    function restoreDraft() {
+        const raw = sessionStorage.getItem(storageKey);
+        if (!raw) return;
+
+        try {
+            const draft = JSON.parse(raw);
+
+            trackedIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el || typeof draft[id] === "undefined") return;
+
+                if (el.type === "checkbox") {
+                    el.checked = draft[id] === "1";
+                } else {
+                    el.value = draft[id];
+                }
+            });
+
+            const checkbox = document.getElementById("use_visual_designer");
+            const button = document.getElementById("open_visual_designer");
+            if (checkbox && button) {
+                button.disabled = !checkbox.checked;
+            }
+        } catch (e) {
+            console.warn("Could not restore label draft", e);
+        }
+    }
+
+    restoreDraft();
+
+    trackedIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        const eventName = (el.type === "checkbox" || el.tagName === "SELECT") ? "change" : "input";
+        el.addEventListener(eventName, saveDraft);
+    });
+
+    const realSaveButton = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (realSaveButton) {
+        realSaveButton.addEventListener("click", function () {
+            sessionStorage.removeItem(storageKey);
+        });
+    }
+
     const checkbox = document.getElementById("use_visual_designer");
     const button = document.getElementById("open_visual_designer");
 
     if (checkbox && button) {
         checkbox.addEventListener("change", function() {
             button.disabled = !this.checked;
+            saveDraft();
         });
 
+        button.disabled = !checkbox.checked;
+
         button.addEventListener("click", function() {
-            const labelId = this.dataset.labelId;
-            if (labelId) {
-                window.location.href = "<?php echo site_url('labels/visual_designer/'); ?>" + labelId;
-            }
+            saveDraft();
+
+            const copy = (fromId, toId) => {
+                const from = document.getElementById(fromId);
+                const to = document.getElementById(toId);
+                if (from && to) {
+                    if (from.type === "checkbox") {
+                        to.value = from.checked ? "1" : "0";
+                    } else {
+                        to.value = from.value;
+                    }
+                }
+            };
+
+            copy("label_name", "vd_label_name");
+            copy("paper_type_id", "vd_paper_type_id");
+            copy("measurementType", "vd_measurementType");
+            copy("marginTop", "vd_marginTop");
+            copy("marginLeft", "vd_marginLeft");
+            copy("NX", "vd_NX");
+            copy("NY", "vd_NY");
+            copy("SpaceX", "vd_SpaceX");
+            copy("SpaceY", "vd_SpaceY");
+            copy("width", "vd_width");
+            copy("height", "vd_height");
+            copy("font_size", "vd_font_size");
+            copy("font", "vd_font");
+            copy("label_qsos", "vd_label_qsos");
+            copy("use_visual_designer", "vd_use_visual_designer");
+
+            document.getElementById("visualDesignerLaunchForm").submit();
         });
     }
 });

@@ -248,9 +248,9 @@ class Labels extends CI_Controller {
 
 		if ($qsos->num_rows() > 0) {
 			if ($label->qsos == 1) {
-				$this->makeMultiQsoLabel($qsos->result(), $pdf, 1, $offset, $ptype->orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall);
+				$this->makeMultiQsoLabel($qsos->result(), $pdf, 1, $offset, $ptype->orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall,$label);
 			} else {
-				$this->makeMultiQsoLabel($qsos->result(), $pdf, $label->qsos, $offset, $ptype->orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall);
+				$this->makeMultiQsoLabel($qsos->result(), $pdf, $label->qsos, $offset, $ptype->orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall,$label);
 			}
 		} else {
 			$this->session->set_flashdata('message', __('0 QSOs found for print!'));
@@ -259,7 +259,7 @@ class Labels extends CI_Controller {
 		$pdf->Output();
 	}
 
-	function makeMultiQsoLabel($qsos, $pdf, $numberofqsos, $offset, $orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall) {
+	function makeMultiQsoLabel($qsos, $pdf, $numberofqsos, $offset, $orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall, $label) {
 		$text = '';
 		$current_callsign = '';
 		$current_sat = '';
@@ -276,7 +276,7 @@ class Labels extends CI_Controller {
 			( ($qso->COL_BAND_RX !== $current_sat_bandrx) && ($this->pretty_sat_mode($qso->COL_SAT_MODE) !== '')) ) {
 			   // ((($qso->COL_SAT_NAME ?? '' !== $current_sat) || ($qso->COL_CALL !== $current_callsign)) && ($qso->COL_SAT_NAME ?? '' !== '') && ($col->COL_BAND_RX ?? '' !== $current_sat_bandrx))) {
 				if (!empty($qso_data)) {
-					$this->finalizeData($pdf, $current_callsign, $qso_data, $numberofqsos, $orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall);
+					$this->finalizeData($pdf, $current_callsign, $qso_data, $numberofqsos, $orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall, $label);
 					$qso_data = [];
 				}
 				$current_callsign = $qso->COL_CALL;
@@ -304,11 +304,12 @@ class Labels extends CI_Controller {
 				'pota' => $qso->station_pota ?? '',
 				'wwff' => $qso->station_wwff ?? '',
 				'qslmsg' => $qso->COL_QSLMSG  ?? '',
+				'raw' => $qso,
 
 			];
 		}
 		if (!empty($qso_data)) {
-			$this->finalizeData($pdf, $current_callsign, $qso_data, $numberofqsos, $orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall);
+			$this->finalizeData($pdf, $current_callsign, $qso_data, $numberofqsos, $orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall, $label);
 		}
 	}
 	// New begin
@@ -316,11 +317,12 @@ class Labels extends CI_Controller {
 		return(strlen($sat_mode ?? '') == 2 ? (strtoupper($sat_mode[0]).'/'.strtoupper($sat_mode[1])) : strtoupper($sat_mode ?? ''));
 	}
 
-	function finalizeData($pdf, $current_callsign, &$preliminaryData, $qso_per_label,$orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall) {
+	function finalizeData($pdf, $current_callsign, &$preliminaryData, $qso_per_label,$orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall, $label) {
 
 		$tableData = [];
 		$count_qso = 0;
 		$qso=[];
+		$batchRows = [];
 		foreach ($preliminaryData as $key => $row) {
 			$qso=$row;
 			$time = strtotime($qso['time']);
@@ -332,19 +334,30 @@ class Labels extends CI_Controller {
 				'RST' => $row['rst'],
 			];
 			$tableData[] = $rowData;
+			$batchRows[] = $row;
 			$count_qso++;
 
-			if($count_qso == $qso_per_label){
-				$this->generateLabel($pdf, $current_callsign, $tableData,$count_qso,$qso,$orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall);
-				$tableData = []; // reset the data
-				$count_qso = 0;  // reset the counter
+			if ($count_qso == $qso_per_label) {
+			    if ((int)($label->use_visual_designer ?? 0) === 1 && !empty($label->visual_layout_json)) {
+			        $this->generateVisualLabel($pdf, $label, $current_callsign, $batchRows, $orientation);
+			    } else {
+			        $this->generateLabel($pdf, $current_callsign, $tableData, $count_qso, $qso, $orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall);
+			    }
+
+			    $tableData = [];
+			    $batchRows = [];
+			    $count_qso = 0;
 			}
 			unset($preliminaryData[$key]);
 		}
 		// generate label for remaining QSOs
-		if($count_qso > 0){
-			$this->generateLabel($pdf, $current_callsign, $tableData,$count_qso,$qso,$orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall);
-			$preliminaryData = []; // reset the data
+		if ($count_qso > 0) {
+		    if ((int)($label->use_visual_designer ?? 0) === 1 && !empty($label->visual_layout_json)) {
+		        $this->generateVisualLabel($pdf, $label, $current_callsign, $batchRows, $orientation);
+		    } else {
+		        $this->generateLabel($pdf, $current_callsign, $tableData, $count_qso, $qso, $orientation, $grid, $via, $reference, $qslmsg, $tnxmsg, $mycall);
+		    }
+		    $preliminaryData = [];
 		}
 	}
 
@@ -395,11 +408,223 @@ class Labels extends CI_Controller {
 		    $text .= " | ".($qso['qsl_recvd'] == 'Y' ? 'TNX' : 'PSE')." QSL";
 		}
 
-		$pdf->Add_Label($text,$orientation);    }
+		$pdf->Add_Label($text,$orientation);
+	}
 
 
 	// New End
+	
+	private function generateVisualLabel($pdf, $label, $current_callsign, $batchRows, $orientation)
+	{
+		$layout = json_decode($label->visual_layout_json, true);
 
+		if (!$layout || empty($layout['elements'])) {
+			$pdf->Add_Label('', $orientation);
+			return;
+		}
+
+		// Move to next label position on the sheet
+		$pdf->Add_Label('', $orientation);
+
+		// Capture the current label's top-left origin on the page
+		$originX = $pdf->GetX();
+		$originY = $pdf->GetY();
+
+		$this->drawVisualElements($pdf, $label, $layout, $batchRows, $originX, $originY);
+	}
+
+		private function drawVisualElements($pdf, $label, $layout, $batchRows, $originX, $originY)
+	{
+		$primaryRow = $this->getPrimaryVisualRow($batchRows);
+
+		// Keep row spacing simple for now
+		$rowHeightIn = 0.22;
+
+		foreach ($layout['elements'] as $element) {
+			$type = $element['type'] ?? 'field';
+			$isMulti = !empty($element['multi_qso']);
+
+			$xIn = isset($element['x_in']) ? (float)$element['x_in'] : 0.0;
+			$yIn = isset($element['y_in']) ? (float)$element['y_in'] : 0.0;
+
+			if ($isMulti) {
+				$rowIndex = 0;
+
+				foreach ($batchRows as $row) {
+					$text = '';
+
+					if ($type === 'text') {
+						$text = $element['text'] ?? '';
+					} else {
+						$text = $this->resolveVisualFieldValue($element['field'] ?? '', $row, $primaryRow);
+					}
+
+					
+					$drawX = $this->designerUnitsToPdfUnits($xIn) + $originX;
+					$drawY = $this->designerUnitsToPdfUnits($yIn + ($rowIndex * $rowHeightIn)) + $originY;
+					$this->drawElement($pdf, $element, $text, $drawX, $drawY);
+
+					$rowIndex++;
+				}
+			} else {
+				$text = '';
+
+				if ($type === 'text') {
+					$text = $element['text'] ?? '';
+				} else {
+					$text = $this->resolveVisualFieldValue($element['field'] ?? '', $primaryRow, $primaryRow);
+				}
+
+				$drawX = $this->designerUnitsToPdfUnits($xIn) + $originX;
+				$drawY = $this->designerUnitsToPdfUnits($yIn) + $originY;
+				$this->drawElement($pdf, $element, $text, $drawX, $drawY);
+			}
+		}
+	}
+
+	private function designerUnitsToPdfUnits($valueIn)
+	{
+		return $valueIn * 25.4;
+	}
+	private function drawElement($pdf, $element, $text, $x, $y)
+	{
+		$font = $element['font'] ?? 'Helvetica';
+		$size = (float)($element['font_pt'] ?? 12);
+		$style = !empty($element['bold']) ? 'B' : '';
+
+		$pdf->SetFont($font, $style, $size);
+
+		// Text() is better than Cell() for exact placement
+		$pdf->Text($x, $y, (string)$text);
+	}
+	private function getPrimaryVisualRow($batchRows)
+	{
+	    usort($batchRows, function($a, $b) {
+        	return strtotime($b['time']) <=> strtotime($a['time']);
+	    });
+
+	    return $batchRows[0] ?? null;
+	}
+	
+	private function buildVisualLabelText($layout, $batchRows, $primaryRow)
+	{
+	    $singleLines = [];
+	    $multiLines = [];
+
+	    foreach ($layout['elements'] as $element) {
+	        $value = '';
+
+        	if (($element['type'] ?? '') === 'text') {
+	            $value = $element['text'] ?? '';
+        	} else {
+	            $field = $element['field'] ?? '';
+        	    $isMulti = !empty($element['multi_qso']);
+	
+	            if ($isMulti) {
+        	        foreach ($batchRows as $row) {
+	                    $resolved = $this->resolveVisualFieldValue($field, $row, $primaryRow);
+                	    if ($resolved !== '') {
+        	                $multiLines[] = $resolved;
+	                    }
+                	}
+        	        continue;
+	            } else {
+                	$value = $this->resolveVisualFieldValue($field, $primaryRow, $primaryRow);
+        	    }
+	        }
+
+        	if ($value !== '') {
+	            $singleLines[] = $value;
+        	}
+	    }
+
+	    return trim(implode("\n", array_merge($singleLines, $multiLines)));
+	}
+	private function resolveVisualFieldValue($field, $row, $primaryRow)
+	{
+	    switch ($field) {
+	        case 'qso.call':
+        	    return $primaryRow['raw']->COL_CALL ?? '';
+
+	        case 'qso.station_callsign':
+        	    return $primaryRow['raw']->COL_STATION_CALLSIGN ?? '';
+
+	        case 'qso.band':
+        	    return $row['band'] ?? '';
+
+	        case 'qso.mode':
+        	    return $row['mode'] ?? '';
+
+	        case 'qso.freq':
+        	    return $row['raw']->COL_FREQ ?? '';
+
+	        case 'qso.qso_date':
+        	    return !empty($row['time']) ? date('Y-m-d', strtotime($row['time'])) : '';
+
+	        case 'qso.time_on':
+        	    return !empty($row['time']) ? date('H:i', strtotime($row['time'])) : '';
+
+	        case 'qso.datetime':
+        	    return !empty($row['time']) ? date('Y-m-d H:i', strtotime($row['time'])) : '';
+
+	        case 'qso.date_day':
+        	    return !empty($row['time']) ? date('d', strtotime($row['time'])) : '';
+
+	        case 'qso.date_month':
+        	    return !empty($row['time']) ? date('m', strtotime($row['time'])) : '';
+
+	        case 'qso.date_year':
+        	    return !empty($row['time']) ? date('Y', strtotime($row['time'])) : '';
+
+	        case 'qso.time_hour':
+        	    return !empty($row['time']) ? date('H', strtotime($row['time'])) : '';
+
+	        case 'qso.time_minute':
+        	    return !empty($row['time']) ? date('i', strtotime($row['time'])) : '';
+
+	        case 'qso.rst_sent':
+        	    return $row['rst'] ?? '';
+
+	        case 'qso.rst_rcvd':
+        	    return $row['raw']->COL_RST_RCVD ?? '';
+
+	        case 'qso.comment':
+        	    return $primaryRow['raw']->COL_COMMENT ?? '';
+
+	        case 'qso.operator':
+        	    return $primaryRow['raw']->COL_OPERATOR ?? '';
+
+	        case 'qso.name':
+        	    return $primaryRow['raw']->COL_NAME ?? '';
+
+	        case 'qso.qsl_via':
+        	    return $primaryRow['via'] ?? '';
+
+	        case 'qso.gridsquare':
+        	    return $primaryRow['raw']->COL_GRIDSQUARE ?? '';
+
+	        case 'qso.my_gridsquare':
+        	    return $primaryRow['mygrid'] ?? '';
+
+	        case 'qso.dxcc':
+        	    return $primaryRow['raw']->COL_COUNTRY ?? '';
+
+	        case 'qso.pota_ref':
+        	    return $primaryRow['raw']->COL_POTA_REF ?? '';
+
+	        case 'qso.sota_ref':
+        	    return $primaryRow['raw']->COL_SOTA_REF ?? '';
+
+	        case 'qso.my_pota_ref':
+        	    return $primaryRow['pota'] ?? '';
+
+	        case 'qso.my_sota_ref':
+        	    return $primaryRow['sota'] ?? '';
+
+	        default:
+        	    return '';
+	    }
+	}
 	public function edit($id) {
 		$this->load->model('labels_model');
 
@@ -512,21 +737,42 @@ class Labels extends CI_Controller {
 	public function visual_designer($id = null)
 	{
 	    if ($id === null) {
+	        show_404();
+	    }
+
+	    $this->load->model('labels_model');
+
+	    $cleanid = $this->security->xss_clean($id);
+	    $user_id = $this->session->userdata('user_id');
+
+	    $savedLabel = $this->labels_model->getLabel($cleanid, $user_id);
+
+	    if (!$savedLabel) {
         	show_404();
 	    }
 
-	    $this->load->model('Labels_model');
+	    $this->labels_model->enableVisualDesigner($cleanid, $user_id);
 
-    	    $cleanid = $this->security->xss_clean($id);
-            $user_id = $this->session->userdata('user_id');
+	    $label = clone $savedLabel;
 
-	    $this->Labels_model->enableVisualDesigner($cleanid, $user_id);
-
-
-	    $label = $this->Labels_model->getLabel($cleanid, $user_id);
-
-	    if (!$label) {
-        	show_404();
+	    if ($this->input->method() === 'post') {
+	        $label->label_name = $this->input->post('label_name', true);
+        	$label->paper_type_id = $this->input->post('paper_type_id', true);
+	        $label->metric = $this->input->post('measurementType', true);
+        	$label->margintop = $this->input->post('marginTop', true);
+	        $label->marginleft = $this->input->post('marginLeft', true);
+        	$label->nx = $this->input->post('NX', true);
+	        $label->ny = $this->input->post('NY', true);
+        	$label->spacex = $this->input->post('SpaceX', true);
+	        $label->spacey = $this->input->post('SpaceY', true);
+        	$label->width = $this->input->post('width', true);
+	        $label->height = $this->input->post('height', true);
+        	$label->font_size = $this->input->post('font_size', true);
+	        $label->font = $this->input->post('font', true);
+        	$label->qsos = $this->input->post('label_qsos', true);
+	        $label->use_visual_designer = 1;
+	    } else {
+	        $label->use_visual_designer = 1;
 	    }
 
 	    $data['label'] = $label;
@@ -535,5 +781,28 @@ class Labels extends CI_Controller {
 	    $this->load->view('interface_assets/header', $data);
 	    $this->load->view('labels/visual_designer', $data);
 	    $this->load->view('interface_assets/footer');
+	}
+	public function save_visual_designer($id = null)
+	{
+	    if ($id === null) {
+        	show_404();
+	    }
+
+	    $this->load->model('labels_model');
+
+	    $cleanid = $this->security->xss_clean($id);
+	    $user_id = $this->session->userdata('user_id');
+	    $json = $this->input->post('visual_layout_json', false);
+
+	    json_decode($json);
+	    if (json_last_error() !== JSON_ERROR_NONE) {
+	        $this->session->set_flashdata('error', __('Invalid JSON.'));
+	        redirect('labels/visual_designer/' . $cleanid);
+        	return;
+	    }
+
+	    $this->labels_model->saveVisualLayoutJson($cleanid, $user_id, $json);
+	    $this->session->set_flashdata('message', __('Visual layout saved.'));
+	    redirect('labels/visual_designer/' . $cleanid);
 	}
 }

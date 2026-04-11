@@ -243,4 +243,13 @@ class Labels_model extends CI_Model {
             'use_visual_designer' => 1
         ));
     }
+    public function saveVisualLayoutJson($id, $user_id, $json)
+    {
+        $this->db->where('id', $id);
+        $this->db->where('user_id', $user_id);
+
+        return $this->db->update('label_types', array(
+            'visual_layout_json' => $json
+        ));
+    }
 }
